@@ -159,7 +159,7 @@ int main(int argc, char* argv[]) {
     std::string outname = argv[2];
 
     loadModel(file);
-    std::ofstream ofstrem(outname+".kmf", std::ios::out | std::ios::binary);
+    std::ofstream ofstrem(outname, std::ios::out | std::ios::binary);
     int versionNum = VERSNUM;
     ofstrem.write((char *) &versionNum, sizeof(int));
 
