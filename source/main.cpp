@@ -7,6 +7,8 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 #include <vector>
+#include <ostream>
+#include <fstream>
 
 #define VERSNUM 1.0
 void print_syntax() {
@@ -28,6 +30,10 @@ struct vertex {
     glm::vec3 normal;
     glm::vec2 texcoord;
 };
+struct texture {
+    std::string path;
+    std::string type;
+};
 struct Material {
     float shininess;
     glm::vec3 diffuseColor;
@@ -36,14 +42,14 @@ struct Material {
 struct mesh {
     std::vector<vertex> vertices;
     std::vector<int> indices;
-    std::vector<std::string> textures;
+    std::vector<texture> textures;
     Material mat;
 
 };
 std::vector<mesh> meshes;
-std::vector<std::string> loadtexture(aiMaterial *mat, aiTextureType type, std::string typeName)
+std::vector<texture> loadtexture(aiMaterial *mat, aiTextureType type, std::string typeName)
 {
-    std::vector<std::string> textures;
+    std::vector<texture> textures;
     for(unsigned int i = 0; i < mat->GetTextureCount(type); i++)
     {
         aiString str;
@@ -51,16 +57,16 @@ std::vector<std::string> loadtexture(aiMaterial *mat, aiTextureType type, std::s
         bool skip = false;
         for(unsigned int j = 0; j < textures.size(); j++)
         {
-            if(std::strcmp(textures[j].c_str(), std::string(dir+"/"+str.C_Str()).c_str()) == 0)
+            if(std::strcmp(textures[j].path.c_str(), std::string(dir+"/"+str.C_Str()).c_str()) == 0)
             {
-                std::cout << "pass " << textures[j] << "\n";
+                std::cout << "pass " << textures[j].path << "\n";
                 skip = true;
                 break;
             }
         }
         if(!skip)
         {   // if texture hasn't been loaded already, load it
-            textures.push_back(dir+"/"+str.C_Str());
+            textures.push_back({dir+"/"+str.C_Str(),typeName});
         }
     }
     return textures;
@@ -71,7 +77,7 @@ std::vector<std::string> loadtexture(aiMaterial *mat, aiTextureType type, std::s
 mesh handlemesh(aiMesh* aimesh, const aiScene* scene) {
     std::vector<vertex> vertices; //smells like mesh.h
     std::vector<int> indices;
-    std::vector<std::string> textures;
+    std::vector<texture> textures;
     Material mat;
     for(uint i = 0; i < aimesh->mNumVertices; i++) {
         vertex v;
@@ -96,15 +102,15 @@ mesh handlemesh(aiMesh* aimesh, const aiScene* scene) {
 
     if(aimesh->mMaterialIndex >= 0) {
         aiMaterial* material = scene->mMaterials[aimesh->mMaterialIndex];
-        std::vector<std::string> diffuseMaps = loadtexture(material,
+        std::vector<texture> diffuseMaps = loadtexture(material,
                                             aiTextureType_DIFFUSE, "texture_diffuse");
         textures.insert(textures.end(), diffuseMaps.begin(), diffuseMaps.end());
 
-        std::vector<std::string> specularMaps = loadtexture(material,
+        std::vector<texture> specularMaps = loadtexture(material,
                                             aiTextureType_SPECULAR, "texture_specular");        
         textures.insert(textures.end(), specularMaps.begin(), specularMaps.end());
 
-        std::vector<std::string> emissionMaps = loadtexture(material,
+        std::vector<texture> emissionMaps = loadtexture(material,
                                             aiTextureType_SPECULAR, "texture_specular");
         textures.insert(textures.end(), emissionMaps.begin(), emissionMaps.end());
 
@@ -149,19 +155,54 @@ int main(int argc, char* argv[]) {
     }
     std::string file = argv[1];
     loadModel(file);
-    std::cout << meshes.at(0).textures.at(0) << "\n";
-    FILE *ff = fopen("file.txt","a+"); 
-    if(!ff) {
-            fprintf(stderr,"error opening file...exiting\n");
-            exit(1);
-    }
-    fprintf(ff,"float vec[] = {\n"); // write
+    std::ofstream ofstrem(file+".kmf", std::ios::out | std::ios::binary);
+    size_t meshsize = meshes.size();
+    ofstrem.write((char *) &meshsize, sizeof(size_t));    
+    for(long unsigned i = 0; i < meshes.size(); i++) {
+        size_t size = meshes.at(i).vertices.size();
+        ofstrem.write((char *) &size, sizeof(size_t));    
+        for(vertex v : meshes.at(i).vertices) {
+            ofstrem.write((char *) &v.pos.x, sizeof(float));    
+            ofstrem.write((char *) &v.pos.y, sizeof(float));    
+            ofstrem.write((char *) &v.pos.z, sizeof(float));    
+            ofstrem.write((char *) &v.normal.x, sizeof(float));    
+            ofstrem.write((char *) &v.normal.y, sizeof(float));    
+            ofstrem.write((char *) &v.normal.z, sizeof(float));    
+            ofstrem.write((char *) &v.texcoord.x, sizeof(float));    
+            ofstrem.write((char *) &v.texcoord.y, sizeof(float));    
+        }
+        size_t indicesSize = meshes.at(i).indices.size();
+        ofstrem.write((char *) &indicesSize, sizeof(size_t));    
+        for(int v : meshes.at(i).indices) {
+            ofstrem.write((char *) &v, sizeof(int));    
+        }
 
-    for(vertex v : meshes.at(0).vertices) {
-        std::cout << v.pos.x << " " << v.pos.y << " " << v.pos.z << "\n";
-        fprintf(ff,"%f,%f,%f,%f,%f,\n", v.pos.x,v.pos.y,v.pos.z,v.texcoord.x,v.texcoord.y); // write
+        ofstrem.write((char *) &meshes.at(i).mat.shininess, sizeof(float));    
+        ofstrem.write((char *) &meshes.at(i).mat.emissionColor, sizeof(glm::vec3));    
+        ofstrem.write((char *) &meshes.at(i).mat.diffuseColor, sizeof(glm::vec3)); 
+        size_t texsize = meshes.at(i).textures.size();
+
+        ofstrem.write((char *) &texsize, sizeof(size_t)); 
+
+        for(texture t : meshes.at(i).textures) {
+            unsigned long sizeofPath = t.path.length();
+            unsigned long sizeOfType = t.type.length();
+            std::cout << t.path << " " << t.type << "\n";
+            ofstrem.write((char *) &sizeofPath, sizeof(unsigned long));    
+            for(char c : t.path) {
+                ofstrem.write(&c, sizeof(char));  
+            }
+            ofstrem.write((char *) &sizeOfType, sizeof(unsigned long));    
+            for(char c : t.type) {
+                ofstrem.write(&c, sizeof(char));  
+            }
+
+            // ofstrem.write((char *) &sizeOfType, sizeof(unsigned long));  
+            // ofstrem.write((char *) &t.type, sizeof(t.type));    
+
+        }
     }
-    fclose(ff); // close file
+    ofstrem.close();
 
     // for (int i = 0; i < argc; i++) {
     //     printf("%s\n", argv[i]);
