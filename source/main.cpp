@@ -10,7 +10,7 @@
 #include <ostream>
 #include <fstream>
 
-#define VERSNUM 1.0
+#define VERSNUM 1
 void print_syntax() {
     std::cout <<"KNUXFAN'S MODELING TOOL\n"
     "K N U X F A N\n"
@@ -21,8 +21,10 @@ void print_syntax() {
 "K N F X F A N   F\n"
 "  \\ A         \\ A\n"
 "    K N U X F A N\n"
-"Version " << VERSNUM << " Built for SDLTetris 2 ALPHA! DO NOT DISTRIBUTE! (unless i distribute it, then its cool)\n"
-"usage KMFModeler modeltoimport.[fbx,dae,obj...etc] [-A atlas(true/false)] [out]";
+"Version ID Number" << VERSNUM << " Built for SDLTetris 2 ALPHA! DO NOT DISTRIBUTE! (unless i distribute it, then its cool)\n"
+"REMINDER! This version only produces it's own model format! If you need to produce legacy model formats, download the older version of the tool from git and compile it yourself, lazy!\n"
+"Also, this needs to be said: This tool should NOT be used by the general public! If you are a general public, I'm giving you no warranty!\n"
+"usage KMFModeler modeltoimport.[fbx,dae,obj...etc] [out]\n";
 }
 std::string dir = "";
 struct vertex {
@@ -154,8 +156,13 @@ int main(int argc, char* argv[]) {
         return -1;
     }
     std::string file = argv[1];
+    std::string outname = argv[2];
+
     loadModel(file);
-    std::ofstream ofstrem(file+".kmf", std::ios::out | std::ios::binary);
+    std::ofstream ofstrem(outname+".kmf", std::ios::out | std::ios::binary);
+    int versionNum = VERSNUM;
+    ofstrem.write((char *) &versionNum, sizeof(int));
+
     size_t meshsize = meshes.size();
     ofstrem.write((char *) &meshsize, sizeof(size_t));    
     for(long unsigned i = 0; i < meshes.size(); i++) {
