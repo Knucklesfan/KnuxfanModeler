@@ -1,4 +1,4 @@
-OBJS = main.o mesh.o
+OBJS = main.o
 HEADER	= 
 OUT	= KMFModeler
 CC	 = g++
@@ -9,5 +9,3 @@ all: $(OBJS)
 	$(CC) -g $(OBJS)  -o $(OUT) $(LFLAGS)
 main.o: source/main.cpp
 	$(CC) $(FLAGS) source/main.cpp -std=c++17
-mesh.o: source/mesh.cpp
-	$(CC) $(FLAGS) source/mesh.cpp -std=c++17
